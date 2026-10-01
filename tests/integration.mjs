@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';import {sample} from '../lib/domain.ts';
+const origin=process.env.TEST_ORIGIN||'http://127.0.0.1:5173';if(new URL(origin).hostname!=='127.0.0.1')throw new Error('仅允许本地开发环境');
+const anon=await fetch(origin+'/api/workbench');assert.equal(anon.status,401);
+const sign=await fetch(origin+'/signin-with-chatgpt?return_to=/',{redirect:'manual'});const cookie=sign.headers.get('set-cookie')?.split(';')[0];assert.ok(cookie);
+async function post(path,data,expected=200){const r=await fetch(origin+path,{method:'POST',headers:{'Content-Type':'application/json',Cookie:cookie,Origin:origin},body:JSON.stringify(data)});const d=await r.json();assert.equal(r.status,expected,JSON.stringify(d));return d;}
+const config={...sample(),name:'自动化验收 '+Date.now(),confirmed:true};
+let {record}=await post('/api/workbench',{action:'trial',config});assert.equal(record.trial.total,'28800.00');
+const oldRev=record.revision;
+config.transactions.push({id:'RETURN',member:'A',product:'X',amount:'-100000',date:'2026-10-01'});
+({record}=await post('/api/workbench',{action:'trial',id:record.id,revision:record.revision,config}));assert.equal(record.trial.total,'22000.00');
+await post('/api/workbench',{action:'save',id:record.id,revision:oldRev,config},409);
+const archived=await post('/api/workbench',{action:'archive',id:record.id,revision:record.revision});const archived2=await post('/api/workbench',{action:'archive',id:record.id,revision:record.revision});assert.equal(archived.historyId,archived2.historyId);
+({record}=await post('/api/workbench',{action:'submit',id:record.id,revision:record.revision}));assert.equal(record.status,'submitted');
+await post('/api/workbench',{action:'approve',id:record.id,revision:record.revision},403);
+const pkg=await post('/api/workbench',{action:'export',id:record.id,revision:record.revision});assert.equal(pkg.package.executable,false);assert.equal(pkg.package.purpose,'draft_review_only');
+config.name+='修订';({record}=await post('/api/workbench',{action:'save',id:record.id,revision:record.revision,config}));assert.equal(record.version,2);assert.equal(record.trial,null);assert.equal(record.approver,null);
+const historical={activityName:'历史核算验收',period:'2026Q3',source:'自动化验收样本',externalBatch:'TEST-'+Date.now(),completedAt:'2026-09-30T00:00:00Z',result:pkg.package.simulation};
+const h1=await post('/api/history',historical);const h2=await post('/api/history',historical);assert.equal(h1.id,h2.id);historical.activityName='覆盖尝试';await post('/api/history',historical,409);
+const listing=await fetch(origin+'/api/workbench',{headers:{Cookie:cookie}}).then(r=>r.json());assert.ok(listing.history.some(h=>h.id===archived.historyId&&h.result.total==='22000.00'));assert.ok(listing.history.some(h=>h.id===h1.id&&h.kind==='completed'&&h.paymentStatus==='unconfirmed'));
+const sap=await fetch(origin+'/api/sap',{method:'POST'});assert.equal(sap.status,501);
+console.log('PASS: authentication, standard/return trials, concurrency conflict, immutable/idempotent snapshots, submit, reviewer authorization, draft export, version invalidation, historical import and SAP disabled');

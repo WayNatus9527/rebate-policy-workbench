@@ -1,0 +1,44 @@
+[
+  {
+    "id": "DEMO-1",
+    "member": "A",
+    "product": "X",
+    "amount": "800000",
+    "date": "2026-10-01"
+  },
+  {
+    "id": "DEMO-2",
+    "member": "A",
+    "product": "Y",
+    "amount": "400000",
+    "date": "2026-10-01"
+  },
+  {
+    "id": "DEMO-3",
+    "member": "A",
+    "product": "Z",
+    "amount": "200000",
+    "date": "2026-10-01"
+  },
+  {
+    "id": "DEMO-4",
+    "member": "B",
+    "product": "X",
+    "amount": "300000",
+    "date": "2026-10-01"
+  },
+  {
+    "id": "DEMO-5",
+    "member": "B",
+    "product": "Y",
+    "amount": "500000",
+    "date": "2026-10-01"
+  },
+  {
+    "id": "DEMO-6",
+    "member": "B",
+    "product": "Z",
+    "amount": "100000",
+    "date": "2026-10-01"
+  }
+]

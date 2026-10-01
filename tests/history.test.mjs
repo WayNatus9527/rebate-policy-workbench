@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {validateHistorical} from '../lib/history.ts';
+const data=()=>({activityName:'历史活动',period:'2026Q3',source:'财务确认文件',externalBatch:'2026Q3-001',completedAt:'2026-09-30T00:00:00Z',result:{groups:[{code:'G',threshold:'100.00',factor:'1'}],children:[{code:'A',name:'子抬头A',group:'G',threshold:'100.00',base:'100.00',returns:'0.00',factor:'1',reward:'2.00'}],total:'2.00'}});
+test('外部历史保留原结果且标为历史，不重新计算',()=>{assert.equal(validateHistorical(data()).result.mode,'historical');});
+test('拒绝合计不一致、负向奖励与缺失来源',()=>{let d=data();d.result.total='3.00';assert.throws(()=>validateHistorical(d),/合计/);d=data();d.result.children[0].reward='-1.00';assert.throws(()=>validateHistorical(d),/金额/);d=data();d.source='';assert.throws(()=>validateHistorical(d),/source/);});

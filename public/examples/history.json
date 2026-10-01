@@ -1,0 +1,45 @@
+{
+  "activityName": "历史导入示例（虚构）",
+  "period": "2026Q3",
+  "source": "演示样本，非真实核算",
+  "externalBatch": "DEMO-2026Q3",
+  "completedAt": "2026-09-30T00:00:00Z",
+  "result": {
+    "mode": "simulation",
+    "groups": [
+      {
+        "code": "G",
+        "threshold": "2000000.00",
+        "factor": "1.2"
+      }
+    ],
+    "children": [
+      {
+        "code": "A",
+        "name": "华东渠道一部",
+        "group": "G",
+        "threshold": "1200000.00",
+        "base": "600000.00",
+        "returns": "0.00",
+        "factor": "1.2",
+        "reward": "14400.00"
+      },
+      {
+        "code": "B",
+        "name": "华东渠道二部",
+        "group": "G",
+        "threshold": "800000.00",
+        "base": "600000.00",
+        "returns": "0.00",
+        "factor": "1.2",
+        "reward": "14400.00"
+      }
+    ],
+    "total": "28800.00",
+    "notices": [
+      "工作台本地试算，未连接SAP，不代表已完成正式核算或发放。",
+      "退货同步扣减两类金额；不产生退货扣款或奖励追回。",
+      "试算约定：子抬头汇总后四舍五入至分；净台阶金额为负时系数为0，无可发奖励时显示0。请在正式使用前确认该约定。"
+    ]
+  }
+}

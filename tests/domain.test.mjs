@@ -1,0 +1,18 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {sample,calculate,validate,scaled} from '../lib/domain.ts';
+import {transition} from '../lib/workflow.ts';
+const fixture=()=>({...sample(),confirmed:true});
+test('标准案例：200万元，共享1.2，合计28800',()=>{const r=calculate(fixture());assert.equal(r.total,'28800.00');assert.deepEqual(r.children.map(c=>c.reward),['14400.00','14400.00']);});
+test('已确认变更：X退货同时扣减两类金额，A10000 B12000',()=>{const c=fixture();c.transactions.push({id:'RETURN',member:'A',product:'X',amount:'-100000',date:'2026-10-02'});const r=calculate(c);assert.equal(r.groups[0].threshold,'1900000.00');assert.equal(r.children[0].base,'500000.00');assert.equal(r.children[0].reward,'10000.00');assert.equal(r.children[1].reward,'12000.00');assert.equal(r.total,'22000.00');});
+test('Z增加10万仅影响A奖励，不改变台阶',()=>{const c=fixture();c.transactions[2].amount='300000';const r=calculate(c);assert.equal(r.groups[0].threshold,'2000000.00');assert.equal(r.children[0].reward,'16800.00');});
+for(const [amount,factor] of [['999999.99','0'],['1000000','1'],['1999999.99','1'],['2000000','1.2']])test(`阶梯边界 ${amount}`,()=>{const c=fixture();c.transactions=[{id:'T',member:'A',product:'Y',amount,date:'2026-10-01'}];assert.equal(calculate(c).groups[0].factor,factor);});
+test('负数保留，最终不形成负向奖励或扣款',()=>{const c=fixture();c.transactions=[{id:'R',member:'A',product:'X',amount:'-10',date:'2026-10-01'}];const r=calculate(c);assert.equal(r.children[0].base,'-10.00');assert.equal(r.groups[0].factor,'0');assert.equal(r.total,'0.00');});
+test('固定比例与分产品比例',()=>{const c=fixture();c.template='fixed';c.products[2].rate='0.03';const r=calculate(c);assert.equal(r.children[0].reward,'14000.00');assert.equal(r.children[1].reward,'13000.00');});
+test('组之间不串系数',()=>{const c=fixture();c.members[1].group='H';const r=calculate(c);assert.equal(r.children[0].reward,'12000.00');assert.equal(r.children[1].reward,'0.00');});
+test('只有达标资格的成员不获奖',()=>{const c=fixture();c.members[0].rebate=false;const r=calculate(c);assert.equal(r.groups[0].threshold,'2000000.00');assert.equal(r.children[0].reward,'0.00');assert.equal(r.children[1].reward,'14400.00');});
+test('精确十进制与子抬头汇总舍入',()=>{assert.equal(scaled('0.29'),29n);const c=fixture();c.template='fixed';c.products[1].rate='0.5';c.transactions=[1,2].map(i=>({id:String(i),member:'A',product:'Y',amount:'0.01',date:'2026-10-01'}));assert.equal(calculate(c).total,'0.01');});
+for(const [name,change] of [['重复明细',c=>c.transactions.push(c.transactions[0])],['成员重复',c=>c.members.push(c.members[0])],['阶梯空档',c=>c.tiers[1].min='1000001'],['无依据确认',c=>c.confirmed=false],['不支持封顶',c=>c.policy+='单家封顶1万元'],['活动截止日期不含',c=>c.transactions[0].date=c.periodEnd],['超精度金额',c=>c.transactions[0].amount='0.001'],['未知成员',c=>c.transactions[0].member='UNKNOWN']])test(`阻断：${name}`,()=>{const c=fixture();change(c);assert.ok(validate(c).length);assert.throws(()=>calculate(c));});
+const record=()=>({id:'a',version:1,revision:1,status:'validated',config:fixture(),trial:calculate(fixture()),digest:'hash',creator:'editor',submitter:null,approver:null,updatedAt:'2026-10-01'});
+test('同人审批被服务端规则拒绝',()=>{const r=transition(record(),'submit',{id:'editor',canReview:false});assert.throws(()=>transition(r,'approve',{id:'editor',canReview:true}),/必须分离/);});
+test('非审批人不能批准，独立审批人可批准，退回失效试算',()=>{const r=transition(record(),'submit',{id:'editor',canReview:false});assert.throws(()=>transition(r,'approve',{id:'other',canReview:false}),/审批权限/);assert.equal(transition(r,'approve',{id:'reviewer',canReview:true}).status,'approved');assert.equal(transition(r,'reject',{id:'reviewer',canReview:true}).trial,null);});
